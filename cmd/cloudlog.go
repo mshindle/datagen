@@ -23,7 +23,8 @@ var clogCmd = &cobra.Command{
 	Use:   "cloudlog",
 	Short: "push generated data to Google Cloud Logging",
 	Long: `
-Generates fake mobile log data and sends it to Google Cloud Logging.`,
+Generates dice rolls for shooting craps. The result of two six-sided die (2d6) are 
+logged to Google Cloud Logging.`,
 	RunE: clog,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// parse configuration
@@ -39,7 +40,7 @@ Generates fake mobile log data and sends it to Google Cloud Logging.`,
 func init() {
 	rootCmd.AddCommand(clogCmd)
 	clogCmd.Flags().String("project", "", "specify the google project id to receive logs")
-	clogCmd.Flags().String("name", "sample-log", " Sets the name of the log to write to")
+	clogCmd.Flags().String("name", "sample-log", "sets the name of the log to write to")
 
 	_ = viper.BindPFlag("projectID", clogCmd.Flags().Lookup("project"))
 	_ = viper.BindPFlag("logName", clogCmd.Flags().Lookup("name"))
@@ -60,8 +61,8 @@ func clog(cmd *cobra.Command, args []string) error {
 		w,
 	))
 
-	g := events.GeneratorFunc(generateMobileLog)
-	e := events.New(g, &logPublisher{})
+	g := shootCraps()
+	e := events.New(g, &logPublisher{}).WithPublishers(clogCfg.Publishers).WithGenerators(clogCfg.Generators)
 	return signalEngine(e)
 }
 
@@ -69,4 +70,11 @@ type logPublisher struct{}
 
 func (l logPublisher) Publish(b []byte) {
 	log.Info().Str("data", string(b)).Msg("mobile log received")
+}
+
+func shootCraps() events.Generator {
+	c := events.NewCup(6, 2)
+	return events.GeneratorFunc(func() events.Event {
+		return c.Throw()
+	})
 }

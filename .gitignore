@@ -1,5 +1,7 @@
 .datagen.yml
 .idea/
+datagen
+*.log
 ### Go template
 # Binaries for programs and plugins
 *.exe
