@@ -61,7 +61,7 @@ func clog(cmd *cobra.Command, args []string) error {
 	))
 
 	g := events.GeneratorFunc(generateMobileLog)
-	e := events.New(g, p)
+	e := events.New(g, &logPublisher{})
 	return signalEngine(e)
 }
 
