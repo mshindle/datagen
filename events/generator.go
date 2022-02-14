@@ -1,6 +1,4 @@
-// Package datagen
-// TODO: create an error channel to report on serialization errors.
-package datagen
+package events
 
 import (
 	"sync"
