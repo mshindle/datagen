@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"os"
+	"encoding/json"
 
-	zlg "github.com/mark-ignacio/zerolog-gcp"
+	"github.com/mshindle/zlg"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -12,15 +12,6 @@ import (
 	"github.com/mshindle/datagen/events"
 )
 
-type cloudConfig struct {
-	appConfig // inherit global config structure
-	ProjectID string
-	LogName   string
-}
-
-var cloudCfg cloudConfig
-var loggerCfg appConfig
-
 var loggerCmd = &cobra.Command{
 	Use:   "logger",
 	Short: "publish generated data to log out",
@@ -28,14 +19,6 @@ var loggerCmd = &cobra.Command{
 Generates dice rolls for shooting craps. The result of two six-sided die (2d6) are 
 logged into application's log output.'`,
 	RunE: runLogger,
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		// parse configuration
-		err := viper.Unmarshal(&loggerCfg)
-		if err != nil {
-			return err
-		}
-		return nil
-	},
 }
 
 // cloudCmd represents the cloudlog command
@@ -46,15 +29,6 @@ var cloudCmd = &cobra.Command{
 Generates dice rolls for shooting craps. The result of two six-sided die (2d6) are 
 logged to Google Cloud Logging.`,
 	RunE: runCloud,
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		// parse configuration
-		err := viper.Unmarshal(&cloudCfg)
-		if err != nil {
-			log.Error().Msg("unable to decode configuration parameters")
-			return err
-		}
-		return nil
-	},
 }
 
 func init() {
@@ -63,39 +37,33 @@ func init() {
 	cloudCmd.Flags().String("project", "", "specify the google project id to receive logs")
 	cloudCmd.Flags().String("name", "sample-log", "sets the name of the log to write to")
 
-	_ = viper.BindPFlag("projectID", cloudCmd.Flags().Lookup("project"))
-	_ = viper.BindPFlag("logName", cloudCmd.Flags().Lookup("name"))
+	_ = viper.BindPFlag("cloudlog.parent", cloudCmd.Flags().Lookup("project"))
+	_ = viper.BindPFlag("cloudlog.logID", cloudCmd.Flags().Lookup("name"))
 }
 
 func runLogger(cmd *cobra.Command, args []string) error {
-	logger := loggerPublishAdapter{msg: "dice roll received", logger: log.Logger}
-	e := events.New(shootCraps(), logger).WithPublishers(loggerCfg.Publishers).WithGenerators(loggerCfg.Generators)
+	logger := publishAdapter{logger: log.Logger}
+	e := events.New(shootCraps(), logger).WithGenerators(cfgApp.Generators).WithPublishers(cfgApp.Publishers)
 	return signalEngine(e)
 }
 
 func runCloud(cmd *cobra.Command, args []string) error {
-	// create a logging client
-	w, err := zlg.NewCloudLoggingWriter(cmd.Context(), cloudCfg.ProjectID, cloudCfg.LogName, zlg.CloudLoggingOptions{})
+	// attach it to zerolog
+	lw, err := zlg.NewWriter(cmd.Context(), cfgApp.CloudLog.Parent, cfgApp.CloudLog.LogID)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to create client")
 		return err
 	}
-	defer zlg.Flush()
-
-	// attach it to zerolog
+	defer zlg.Close()
+	cpa := publishAdapter{logger: log.Output(lw)}
+	e := events.New(shootCraps(), cpa).WithGenerators(cfgApp.Generators).WithPublishers(cfgApp.Publishers)
 	log.Debug().Msg("attaching cloud logging")
-	multi := zerolog.MultiLevelWriter(w, os.Stderr)
-	gcpLogger := loggerPublishAdapter{msg: "dice roll received", logger: log.Output(multi)}
-
-	e := events.New(shootCraps(), gcpLogger).WithPublishers(cloudCfg.Publishers).WithGenerators(cloudCfg.Generators)
 	return signalEngine(e)
 }
 
-type loggerPublishAdapter struct {
-	msg    string
+type publishAdapter struct {
 	logger zerolog.Logger
 }
 
-func (l loggerPublishAdapter) Publish(b []byte) {
-	l.logger.Info().Bytes("data", b).Msg(l.msg)
+func (c publishAdapter) Publish(b []byte) {
+	c.logger.Info().Interface("throw", json.RawMessage(b)).Msg("dice rolled")
 }

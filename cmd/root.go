@@ -7,7 +7,9 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 
+	"github.com/mshindle/datagen/elastic"
 	"github.com/mshindle/datagen/events"
+	"github.com/mshindle/datagen/kafka"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -19,9 +21,16 @@ type appConfig struct {
 	Debug      bool
 	Generators int
 	Publishers int
+	Kafka      kafka.Config
+	Elastic    elastic.Config
+	CloudLog   struct {
+		Parent string
+		LogID  string
+	}
 }
 
 var cfgFile string
+var cfgApp appConfig
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -31,7 +40,13 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		if viper.GetBool("debug") {
+
+		err := viper.Unmarshal(&cfgApp)
+		if err != nil {
+			return err
+		}
+
+		if cfgApp.Debug {
 			zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		}
 		return nil
@@ -58,6 +73,9 @@ func init() {
 	_ = viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	_ = viper.BindPFlag("generators", rootCmd.PersistentFlags().Lookup("generators"))
 	_ = viper.BindPFlag("publishers", rootCmd.PersistentFlags().Lookup("publishers"))
+
+	viper.SetDefault("generators", 1)
+	viper.SetDefault("publishers", 1)
 }
 
 // initConfig reads in config file and ENV variables if set.

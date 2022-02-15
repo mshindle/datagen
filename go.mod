@@ -6,8 +6,8 @@ require (
 	github.com/Shopify/sarama v1.31.1
 	github.com/bxcodec/faker/v3 v3.7.0
 	github.com/elastic/go-elasticsearch/v7 v7.17.0
-	github.com/mark-ignacio/zerolog-gcp v0.4.0
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mshindle/zlg v0.0.1
 	github.com/rs/zerolog v1.26.1
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
