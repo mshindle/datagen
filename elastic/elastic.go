@@ -25,14 +25,13 @@ type Config struct {
 type Service struct {
 	client *elasticsearch.Client
 	bi     esutil.BulkIndexer
-	index  string
 	ctx    context.Context
 	count  uint64
 }
 
 func New(ctx context.Context, c Config) (*Service, error) {
 	var err error
-	p := Service{index: c.Index, ctx: ctx}
+	p := Service{ctx: ctx}
 
 	p.client, err = NewClient(c)
 	if err != nil {
@@ -40,7 +39,7 @@ func New(ctx context.Context, c Config) (*Service, error) {
 	}
 
 	p.bi, err = esutil.NewBulkIndexer(esutil.BulkIndexerConfig{
-		Index:         p.index,
+		Index:         c.Index,
 		Client:        p.client,
 		NumWorkers:    c.NumWorkers,
 		FlushBytes:    c.FlushBytes,
