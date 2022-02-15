@@ -25,8 +25,8 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "block",
-	Short: "generate mock log data and publish it to an endpoint",
+	Use:   "datagen",
+	Short: "generate mock data and publish it to an endpoint",
 	Long:  ``,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
@@ -76,7 +76,7 @@ func initConfig() {
 		viper.AddConfigPath(".")
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yml")
-		viper.SetConfigName(".block")
+		viper.SetConfigName(".datagen")
 	}
 
 	// read in environment variables that match
@@ -119,4 +119,11 @@ func generateMobileLog() events.Event {
 		return nil
 	}
 	return e
+}
+
+func shootCraps() events.Generator {
+	c := events.NewCup(6, 2)
+	return events.GeneratorFunc(func() events.Event {
+		return c.Throw()
+	})
 }

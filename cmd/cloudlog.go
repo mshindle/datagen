@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+
 	zlg "github.com/mark-ignacio/zerolog-gcp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -10,25 +12,43 @@ import (
 	"github.com/mshindle/datagen/events"
 )
 
-type clogConfig struct {
+type cloudConfig struct {
 	appConfig // inherit global config structure
 	ProjectID string
 	LogName   string
 }
 
-var clogCfg clogConfig
+var cloudCfg cloudConfig
+var loggerCfg appConfig
 
-// clogCmd represents the cloudlog command
-var clogCmd = &cobra.Command{
-	Use:   "cloudlog",
+var loggerCmd = &cobra.Command{
+	Use:   "logger",
+	Short: "publish generated data to log out",
+	Long: `
+Generates dice rolls for shooting craps. The result of two six-sided die (2d6) are 
+logged into application's log output.'`,
+	RunE: runLogger,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// parse configuration
+		err := viper.Unmarshal(&loggerCfg)
+		if err != nil {
+			return err
+		}
+		return nil
+	},
+}
+
+// cloudCmd represents the cloudlog command
+var cloudCmd = &cobra.Command{
+	Use:   "cloud",
 	Short: "push generated data to Google Cloud Logging",
 	Long: `
 Generates dice rolls for shooting craps. The result of two six-sided die (2d6) are 
 logged to Google Cloud Logging.`,
-	RunE: clog,
+	RunE: runCloud,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// parse configuration
-		err := viper.Unmarshal(&clogCfg)
+		err := viper.Unmarshal(&cloudCfg)
 		if err != nil {
 			log.Error().Msg("unable to decode configuration parameters")
 			return err
@@ -38,17 +58,24 @@ logged to Google Cloud Logging.`,
 }
 
 func init() {
-	rootCmd.AddCommand(clogCmd)
-	clogCmd.Flags().String("project", "", "specify the google project id to receive logs")
-	clogCmd.Flags().String("name", "sample-log", "sets the name of the log to write to")
+	rootCmd.AddCommand(loggerCmd)
+	loggerCmd.AddCommand(cloudCmd)
+	cloudCmd.Flags().String("project", "", "specify the google project id to receive logs")
+	cloudCmd.Flags().String("name", "sample-log", "sets the name of the log to write to")
 
-	_ = viper.BindPFlag("projectID", clogCmd.Flags().Lookup("project"))
-	_ = viper.BindPFlag("logName", clogCmd.Flags().Lookup("name"))
+	_ = viper.BindPFlag("projectID", cloudCmd.Flags().Lookup("project"))
+	_ = viper.BindPFlag("logName", cloudCmd.Flags().Lookup("name"))
 }
 
-func clog(cmd *cobra.Command, args []string) error {
+func runLogger(cmd *cobra.Command, args []string) error {
+	logger := loggerPublishAdapter{msg: "dice roll received", logger: log.Logger}
+	e := events.New(shootCraps(), logger).WithPublishers(loggerCfg.Publishers).WithGenerators(loggerCfg.Generators)
+	return signalEngine(e)
+}
+
+func runCloud(cmd *cobra.Command, args []string) error {
 	// create a logging client
-	w, err := zlg.NewCloudLoggingWriter(cmd.Context(), clogCfg.ProjectID, clogCfg.LogName, zlg.CloudLoggingOptions{})
+	w, err := zlg.NewCloudLoggingWriter(cmd.Context(), cloudCfg.ProjectID, cloudCfg.LogName, zlg.CloudLoggingOptions{})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create client")
 		return err
@@ -56,25 +83,19 @@ func clog(cmd *cobra.Command, args []string) error {
 	defer zlg.Flush()
 
 	// attach it to zerolog
-	log.Logger = log.Output(zerolog.MultiLevelWriter(
-		zerolog.NewConsoleWriter(),
-		w,
-	))
+	log.Debug().Msg("attaching cloud logging")
+	multi := zerolog.MultiLevelWriter(w, os.Stderr)
+	gcpLogger := loggerPublishAdapter{msg: "dice roll received", logger: log.Output(multi)}
 
-	g := shootCraps()
-	e := events.New(g, &logPublisher{}).WithPublishers(clogCfg.Publishers).WithGenerators(clogCfg.Generators)
+	e := events.New(shootCraps(), gcpLogger).WithPublishers(cloudCfg.Publishers).WithGenerators(cloudCfg.Generators)
 	return signalEngine(e)
 }
 
-type logPublisher struct{}
-
-func (l logPublisher) Publish(b []byte) {
-	log.Info().Str("data", string(b)).Msg("mobile log received")
+type loggerPublishAdapter struct {
+	msg    string
+	logger zerolog.Logger
 }
 
-func shootCraps() events.Generator {
-	c := events.NewCup(6, 2)
-	return events.GeneratorFunc(func() events.Event {
-		return c.Throw()
-	})
+func (l loggerPublishAdapter) Publish(b []byte) {
+	l.logger.Info().Bytes("data", b).Msg(l.msg)
 }
