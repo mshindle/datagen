@@ -40,7 +40,7 @@ func init() {
 }
 
 func kafkaPerf(cmd *cobra.Command, args []string) error {
-	ap, err := kafka.NewAsyncProducer(kafkaCfg.Kafka)
+	ap, err := kafka.NewAsyncProducer(cfgApp.Kafka)
 	if err != nil {
 		log.Error().Msg("unable to create kafka client")
 		return err
@@ -80,7 +80,7 @@ func kafkaPerf(cmd *cobra.Command, args []string) error {
 			log.Debug().Int("msgs", j).Msg("messages sent")
 		}
 		ap.Input() <- &sarama.ProducerMessage{
-			Topic: kafkaCfg.Kafka.Topic,
+			Topic: cfgApp.Kafka.Topic,
 			Value: sarama.ByteEncoder(value),
 		}
 	}
