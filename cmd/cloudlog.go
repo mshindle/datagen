@@ -43,7 +43,11 @@ func init() {
 
 func runLogger(cmd *cobra.Command, args []string) error {
 	logger := publishAdapter{logger: log.Logger}
-	e := events.New(shootCraps(), logger).WithGenerators(cfgApp.Generators).WithPublishers(cfgApp.Publishers)
+	e, _ := events.NewEngine(
+		shootCraps(), logger,
+		events.WithNumGenerators(cfgApp.Generators),
+		events.WithNumPublishers(cfgApp.Publishers),
+	)
 	return signalEngine(e)
 }
 
@@ -55,7 +59,11 @@ func runCloud(cmd *cobra.Command, args []string) error {
 	}
 	defer zlg.Close()
 	cpa := publishAdapter{logger: log.Output(lw)}
-	e := events.New(shootCraps(), cpa).WithGenerators(cfgApp.Generators).WithPublishers(cfgApp.Publishers)
+	e, _ := events.NewEngine(
+		shootCraps(), cpa,
+		events.WithNumGenerators(cfgApp.Generators),
+		events.WithNumPublishers(cfgApp.Publishers),
+	)
 	log.Debug().Msg("attaching cloud logging")
 	return signalEngine(e)
 }

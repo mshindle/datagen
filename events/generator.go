@@ -39,26 +39,38 @@ type Engine struct {
 	numPublishers int
 }
 
-// New returns a new engine with configured generator & publisher
-func New(generator Generator, publisher Publisher) *Engine {
-	return &Engine{
+type Option func(*Engine) error
+
+// NewEngine returns a new engine with configured generator & publisher
+func NewEngine(generator Generator, publisher Publisher, opts ...Option) (*Engine, error) {
+	e := &Engine{
 		generator:     generator,
 		publisher:     publisher,
 		numGenerators: 1,
 		numPublishers: 1,
 	}
+	for _, o := range opts {
+		if err := o(e); err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
 }
 
-// WithGenerators to the number of parallelized generators in use by the engine
-func (e *Engine) WithGenerators(n int) *Engine {
-	e.numGenerators = n
-	return e
+// WithNumGenerators to the number of parallelized generators in use by the engine
+func WithNumGenerators(n int) Option {
+	return func(e *Engine) error {
+		e.numGenerators = n
+		return nil
+	}
 }
 
-// WithPublishers to the number of parallelized publishers in use by the engine
-func (e *Engine) WithPublishers(n int) *Engine {
-	e.numPublishers = n
-	return e
+// WithNumPublishers to the number of parallelized publishers in use by the engine
+func WithNumPublishers(n int) Option {
+	return func(e *Engine) error {
+		e.numPublishers = n
+		return nil
+	}
 }
 
 // Run starts the data generation, serializes it into the appropriate format,

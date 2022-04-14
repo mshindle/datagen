@@ -42,6 +42,9 @@ func runElastic(cmd *cobra.Command, args []string) error {
 	}
 
 	g := events.GeneratorFunc(generateMobileLog)
-	e := events.New(g, p).WithGenerators(cfgApp.Generators).WithPublishers(cfgApp.Publishers)
+	e, _ := events.NewEngine(g, p,
+		events.WithNumGenerators(cfgApp.Generators),
+		events.WithNumPublishers(cfgApp.Publishers),
+	)
 	return signalEngine(e)
 }
