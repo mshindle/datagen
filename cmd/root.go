@@ -65,7 +65,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.govatar.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.datagen.yaml)")
 	rootCmd.PersistentFlags().Bool("debug", false, "sets log level to debug")
 	rootCmd.PersistentFlags().IntP("generators", "g", 1, "set the number of generators")
 	rootCmd.PersistentFlags().IntP("publishers", "p", 1, "set the number of publishers")
@@ -90,7 +90,7 @@ func initConfig() {
 			log.Fatal().Err(err).Msg("exiting application...")
 		}
 
-		// Search config in home directory with name ".govatar" (without extension).
+		// Search config in home directory with name ".datagen" (without extension).
 		viper.AddConfigPath(".")
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yml")

@@ -31,8 +31,12 @@ func MockMobileLog() (MobileLog, error) {
 	if err := faker.FakeData(&ml); err != nil {
 		return ml, err
 	}
-	ml.RecordedTimestamp = time.Unix(faker.UnixTime(), 0)
-	ml.CollectedTimestamp = ml.RecordedTimestamp.Add(time.Duration(random.Intn(10)) * time.Second)
+	// generate a random time between now and 24 hours in the past
+	t := time.Now().
+		Add(-1 * time.Hour).
+		Add(time.Duration(random.Intn(3600)) * time.Second)
+	ml.RecordedTimestamp = t
+	ml.CollectedTimestamp = t.Add(time.Duration(random.Intn(10)) * time.Second)
 
 	return ml, nil
 }
