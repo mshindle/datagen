@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
@@ -15,8 +14,8 @@ type Config struct {
 	Topic            string
 }
 
-// Service wraps a sarama.AsyncProducer to create an events.Publisher that can be used
-// with events.Engine
+// Service wraps a sarama.AsyncProducer to create a generators.Publisher that can be used
+// with generators.Engine
 type Service struct {
 	topic    string
 	producer sarama.AsyncProducer
@@ -32,24 +31,6 @@ func New(c Config) (*Service, error) {
 		return nil, err
 	}
 
-	// just count the number of successful messages published...
-	go func() {
-		var n int
-		for _ = range s.producer.Successes() {
-			n++
-			if n%10000 == 0 {
-				log.Debug().Int("messages", n).Msg("messages sent")
-			}
-		}
-	}()
-
-	// log any errors talking to kafka
-	go func() {
-		for err := range s.producer.Errors() {
-			log.Error().Err(err).Msg("failed to deliver message")
-		}
-	}()
-
 	return &s, nil
 }
 
@@ -63,6 +44,22 @@ func (s *Service) Publish(b []byte) {
 
 func (s *Service) Close() error {
 	return s.producer.Close()
+}
+
+// Successes is the success output channel back to the user when Return.Successes is
+// enabled. If Return.Successes is true, you MUST read from this channel or the
+// Producer will deadlock. It is suggested that you send and read messages
+// together in a single select statement.
+func (s *Service) Successes() <-chan *sarama.ProducerMessage {
+	return s.producer.Successes()
+}
+
+// Errors is the error output channel back to the user. You MUST read from this
+// channel or the Producer will deadlock when the channel is full. Alternatively,
+// you can set Producer.Return.Errors in your config to false, which prevents
+// errors to be returned.
+func (s *Service) Errors() <-chan *sarama.ProducerError {
+	return s.producer.Errors()
 }
 
 // NewAsyncProducer returns an asynchronous kafka producer using the sarama package.

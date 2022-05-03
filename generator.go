@@ -1,17 +1,17 @@
-package events
+package datagen
 
 import (
 	"sync"
 )
 
-// Event represents a generated events from a Generator. Serialize() should
-// return the events as an array of bytes.
+// Event represents a generated generators from a Generator. Serialize() should
+// return the generators as an array of bytes.
 
 type Event interface {
 	Serialize() ([]byte, error)
 }
 
-// Generator represents a data generator which sends an events
+// Generator represents a data generator which sends an generators
 // along the supplied channel
 type Generator interface {
 	Generate() Event
@@ -31,7 +31,7 @@ type Publisher interface {
 	Publish(b []byte)
 }
 
-// Engine runs data generation and publishes the events
+// Engine runs data generation and publishes the generators
 type Engine struct {
 	generator     Generator
 	publisher     Publisher

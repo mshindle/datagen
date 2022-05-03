@@ -9,7 +9,6 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
-	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
@@ -62,7 +61,7 @@ func NewClient(c Config) (*elasticsearch.Client, error) {
 		RetryBackoff: func(i int) time.Duration {
 			// A simple exponential delay
 			d := time.Duration(math.Exp2(float64(i))) * time.Second
-			log.Info().Int("attempt", i).Dur("sleeping", d).Msg("could not connect - backing off...")
+			//log.Info().Int("attempt", i).Dur("sleeping", d).Msg("could not connect - backing off...")
 			return d
 		},
 	}
@@ -83,35 +82,31 @@ func (s *Service) Publish(b []byte) {
 			OnSuccess: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem) {
 				atomic.AddUint64(&s.count, 1)
 				if s.count > 0 && s.count%100 == 0 {
-					log.Debug().Uint64("count", s.count).Msg("messages indexed")
+					//log.Debug().Uint64("count", s.count).Msg("messages indexed")
 				}
 			},
 
 			// OnFailure is called for each failed operation
 			OnFailure: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem, err error) {
-				if err != nil {
-					log.Error().Err(err).Msg("error indexing")
-				} else {
-					log.Error().
-						Str("type", res.Error.Type).
-						Str("reason", res.Error.Reason).
-						Msg("error indexing")
-				}
+				//if err != nil {
+				//	log.Error().Err(err).Msg("error indexing")
+				//} else {
+				//	log.Error().
+				//		Str("type", res.Error.Type).
+				//		Str("reason", res.Error.Reason).
+				//		Msg("error indexing")
+				//}
 			},
 		},
 	)
 	if err != nil {
-		log.Error().Err(err).Msg("unexpected error")
+		//log.Error().Err(err).Msg("unexpected error")
 	}
 }
 
 func (s *Service) ListIndices() error {
-	res, err := s.client.Indices.GetAlias()
-	if err != nil {
-		return err
-	}
-	log.Debug().Interface("response", res).Msg("response on alias")
-	return nil
+	_, err := s.client.Indices.GetAlias()
+	return err
 }
 
 func (s *Service) Close() error {
