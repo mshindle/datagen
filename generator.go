@@ -4,21 +4,20 @@ import (
 	"sync"
 )
 
-// Event represents a generated generators from a Generator. Serialize() should
-// return the generators as an array of bytes.
-
+// Event represents a first class thingamajig created by a Generator. Serialize() should
+// return the output as a byte array.
 type Event interface {
 	Serialize() ([]byte, error)
 }
 
-// Generator represents a data generator which sends an generators
-// along the supplied channel
+// Generator represents a data generator which sends an event
+// on the supplied channel
 type Generator interface {
 	Generate() Event
 }
 
-// GeneratorFunc type is an adapter to allow the use of ordinary functions as generators. If g is a function with
-// the appropriate signature, GeneratorFunc(g) is a Generator that calls g.
+// GeneratorFunc type is an adapter to allow the use of ordinary functions as generators. If g is a
+// function with the appropriate signature, GeneratorFunc(g) is a Generator that calls g.
 type GeneratorFunc func() Event
 
 // Generate calls g() and returns Event
