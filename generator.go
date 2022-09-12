@@ -1,6 +1,7 @@
 package datagen
 
 import (
+	"context"
 	"sync"
 )
 
@@ -30,6 +31,14 @@ type Publisher interface {
 	Publish(b []byte)
 }
 
+// PublisherFunc adapts a function into the publisher interface
+type PublisherFunc func([]byte)
+
+// Publish calls p with argument b
+func (p PublisherFunc) Publish(b []byte) {
+	p(b)
+}
+
 // Engine runs data generation and publishes the generators
 type Engine struct {
 	generator     Generator
@@ -38,10 +47,10 @@ type Engine struct {
 	numPublishers int
 }
 
-type Option func(*Engine) error
+type Option func(*Engine)
 
 // NewEngine returns a new engine with configured generator & publisher
-func NewEngine(generator Generator, publisher Publisher, opts ...Option) (*Engine, error) {
+func NewEngine(generator Generator, publisher Publisher, opts ...Option) *Engine {
 	e := &Engine{
 		generator:     generator,
 		publisher:     publisher,
@@ -49,40 +58,33 @@ func NewEngine(generator Generator, publisher Publisher, opts ...Option) (*Engin
 		numPublishers: 1,
 	}
 	for _, o := range opts {
-		if err := o(e); err != nil {
-			return nil, err
-		}
+		o(e)
 	}
-	return e, nil
+	return e
 }
 
 // WithNumGenerators to the number of parallelized generators in use by the engine
 func WithNumGenerators(n int) Option {
-	return func(e *Engine) error {
+	return func(e *Engine) {
 		e.numGenerators = n
-		return nil
 	}
 }
 
 // WithNumPublishers to the number of parallelized publishers in use by the engine
 func WithNumPublishers(n int) Option {
-	return func(e *Engine) error {
+	return func(e *Engine) {
 		e.numPublishers = n
-		return nil
 	}
 }
 
 // Run starts the data generation, serializes it into the appropriate format,
-// and sends the data to the publisher. To stop data generation, pass any bool
-// value to the returned channel.
-func (e *Engine) Run() (chan<- bool, error) {
-	// send our exit notice
-	done := make(chan bool)
-
+// and sends the data to the publisher. To cancel the engine running, pass a
+// cancellable context to Run.
+func (e *Engine) Run(ctx context.Context) {
 	// channels for getting the generators to start creating data
 	gchans := make([]<-chan Event, 0, e.numGenerators)
 	for i := 0; i < e.numGenerators; i++ {
-		gchans = append(gchans, e.generate(done))
+		gchans = append(gchans, e.generate(ctx))
 	}
 
 	// fan-in all the generator channels into one...
@@ -92,17 +94,15 @@ func (e *Engine) Run() (chan<- bool, error) {
 	for i := 0; i < e.numPublishers; i++ {
 		e.publish(i, events)
 	}
-
-	return done, nil
 }
 
-func (e *Engine) generate(done <-chan bool) <-chan Event {
+func (e *Engine) generate(ctx context.Context) <-chan Event {
 	out := make(chan Event)
 	go func() {
 		defer close(out)
 		for {
 			select {
-			case <-done:
+			case <-ctx.Done():
 				return
 			default:
 				out <- e.generator.Generate()
@@ -112,7 +112,7 @@ func (e *Engine) generate(done <-chan bool) <-chan Event {
 	return out
 }
 
-func (e *Engine) publish(id int, events <-chan Event) {
+func (e *Engine) publish(_ int, events <-chan Event) {
 	go func() {
 		for evt := range events {
 			b, err := evt.Serialize()
